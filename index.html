@@ -184,6 +184,13 @@
         <div class="status-line" id="master-status">Not loaded</div>
       </div>
 
+      <div>
+        <span class="sidebar-label">Debug</span>
+        <button class="sidebar-btn" style="background:var(--error);margin-bottom:8px;" onclick="hardReset()">Hard Reset &amp; Reconnect</button>
+        <button class="sidebar-btn" style="background:var(--muted);" onclick="checkTokenScopes()">Check Token Scopes</button>
+        <div class="status-line" id="debug-status" style="word-break:break-all;"></div>
+      </div>
+
     </div>
 
     <!-- MAIN -->
@@ -572,6 +579,73 @@ async function createSpotifyPlaylist() {
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg> Create Spotify Playlist';
+  }
+}
+
+// ── DEBUG & RESET ──
+function hardReset() {
+  // Clear everything Spotify-related from storage
+  spotifyToken = null;
+  ['sp_token','sp_refresh','pkce_verifier','master_tracks','master_playlist_name'].forEach(k => {
+    sessionStorage.removeItem(k);
+    localStorage.removeItem(k);
+  });
+  setConnected(false);
+  document.getElementById('master-status').textContent = 'Reset — reconnect Spotify below';
+  document.getElementById('master-status').className = 'status-line';
+  document.getElementById('playlist-picker').style.display = 'none';
+  document.getElementById('load-master-btn').style.display = 'none';
+  masterTracks = [];
+  // Now redirect to Spotify auth with prompt=consent to force full re-approval
+  setTimeout(async () => {
+    const clientId = localStorage.getItem('sp_client_id');
+    const redirectUri = localStorage.getItem('sp_redirect_uri') || window.location.origin;
+    if (!clientId) { alert('Save your Client ID first.'); return; }
+    const verifier = generateVerifier(128);
+    const challenge = await generateChallenge(verifier);
+    sessionStorage.setItem('pkce_verifier', verifier);
+    const params = new URLSearchParams({
+      response_type: 'code', client_id: clientId,
+      scope: 'playlist-modify-public playlist-modify-private playlist-read-private playlist-read-collaborative user-read-private',
+      redirect_uri: redirectUri, code_challenge_method: 'S256', code_challenge: challenge,
+      show_dialog: 'true',
+    });
+    window.location = 'https://accounts.spotify.com/authorize?' + params;
+  }, 300);
+}
+
+async function checkTokenScopes() {
+  const debugEl = document.getElementById('debug-status');
+  if (!spotifyToken) { debugEl.textContent = 'No token — not connected.'; return; }
+  debugEl.textContent = 'Checking token…';
+  try {
+    // Hit /me to see what the token can access and what scopes are included
+    const res = await fetch('https://api.spotify.com/v1/me', {
+      headers: { Authorization: 'Bearer ' + spotifyToken }
+    });
+    const data = await res.json();
+    if (res.ok) {
+      debugEl.textContent = 'Token OK. User: ' + (data.display_name || data.id) + '. Country: ' + (data.country || 'n/a') + '. Product: ' + (data.product || 'n/a');
+      debugEl.className = 'status-line ok';
+      // Also test playlist read
+      const r2 = await fetch('https://api.spotify.com/v1/me/playlists?limit=1', {
+        headers: { Authorization: 'Bearer ' + spotifyToken }
+      });
+      const d2 = await r2.json();
+      if (r2.ok) {
+        const first = d2.items && d2.items[0];
+        debugEl.textContent += ' | Playlist read: OK (' + (d2.total || 0) + ' playlists). First: ' + (first ? first.name + ' — tracks.total: ' + (first.tracks ? first.tracks.total : 'missing') : 'none');
+      } else {
+        debugEl.textContent += ' | Playlist read FAILED: ' + r2.status + ' ' + (d2.error ? d2.error.message : '');
+        debugEl.className = 'status-line err';
+      }
+    } else {
+      debugEl.textContent = 'Token invalid: ' + res.status + ' — ' + (data.error ? data.error.message : JSON.stringify(data));
+      debugEl.className = 'status-line err';
+    }
+  } catch(e) {
+    debugEl.textContent = 'Error: ' + e.message;
+    debugEl.className = 'status-line err';
   }
 }
 
