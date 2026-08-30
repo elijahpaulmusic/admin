@@ -175,11 +175,12 @@
 
       <div>
         <span class="sidebar-label">3 — Master Versions Playlist</span>
-        <p style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6">Paste your private Spotify playlist URL. Connects using your account so private playlists work.</p>
-        <div class="url-row">
-          <input class="config-input" id="master-url" placeholder="Paste playlist URL…" />
-          <button class="load-btn" onclick="loadMasterPlaylist()">Load</button>
-        </div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6">Fetch your playlists from Spotify, choose the master versions playlist, then load its tracks.</p>
+        <button class="load-btn" style="width:100%;margin-bottom:8px;padding:9px;" onclick="fetchMyPlaylists()">Fetch My Playlists</button>
+        <select class="config-input" id="playlist-picker" style="display:none;margin-bottom:8px;font-family:'Open Sans Condensed',sans-serif;font-size:13px;">
+          <option value="">— select a playlist —</option>
+        </select>
+        <button class="sidebar-btn" id="load-master-btn" style="display:none;" onclick="loadSelectedPlaylist()">Load Selected Playlist</button>
         <div class="status-line" id="master-status">Not loaded</div>
       </div>
 
@@ -272,7 +273,7 @@ function loadConfig() {
   document.getElementById('client-id').value = localStorage.getItem('sp_client_id') || '';
   document.getElementById('client-secret').value = localStorage.getItem('sp_client_secret') || '';
   document.getElementById('redirect-uri').value = localStorage.getItem('sp_redirect_uri') || window.location.origin;
-  document.getElementById('master-url').value = localStorage.getItem('master_url') || '';
+  // master playlist loaded via picker
 }
 
 // ── OAUTH (PKCE) ──
@@ -356,34 +357,67 @@ async function spFetch(url, opts = {}) {
   return res;
 }
 
-// ── LOAD MASTER PLAYLIST ──
-async function loadMasterPlaylist() {
+// ── FETCH & LOAD MASTER PLAYLIST ──
+async function fetchMyPlaylists() {
   if (!spotifyToken) { alert('Connect to Spotify first (step 2).'); return; }
-  const url = document.getElementById('master-url').value.trim();
-  const id = extractId(url);
-  if (!id) { alert('Could not read a playlist ID from that URL. Make sure you\'re using the full Share link.'); return; }
-  localStorage.setItem('master_url', url);
   const statusEl = document.getElementById('master-status');
-  statusEl.textContent = 'Loading…'; statusEl.className = 'status-line';
+  statusEl.textContent = 'Fetching your playlists…'; statusEl.className = 'status-line';
   try {
-    const tracks = [];
-    let next = `https://api.spotify.com/v1/playlists/${id}/tracks?limit=100&fields=next,items(track(id,name,artists,uri,duration_ms))`;
-    while (next) {
-      const res = await spFetch(next);
+    const playlists = [];
+    let nextUrl = 'https://api.spotify.com/v1/me/playlists?limit=50';
+    while (nextUrl) {
+      const res = await spFetch(nextUrl);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(`Spotify error ${res.status}: ${err.error?.message || 'check the playlist URL and that you\'re connected'}`);
+        throw new Error('Spotify error ' + res.status + ': ' + (err.error && err.error.message ? err.error.message : 'unknown'));
+      }
+      const data = await res.json();
+      for (const p of (data.items || [])) {
+        if (p && p.id) playlists.push({ id: p.id, name: p.name, count: p.tracks ? p.tracks.total : 0 });
+      }
+      nextUrl = data.next || null;
+    }
+    if (!playlists.length) { statusEl.textContent = 'No playlists found on your account.'; return; }
+    const picker = document.getElementById('playlist-picker');
+    picker.innerHTML = '<option value="">— select a playlist —</option>' +
+      playlists.map(p => '<option value="' + p.id + '">' + p.name + ' (' + p.count + ' tracks)</option>').join('');
+    picker.style.display = 'block';
+    document.getElementById('load-master-btn').style.display = 'block';
+    statusEl.textContent = playlists.length + ' playlists found — select one below';
+    statusEl.className = 'status-line ok';
+  } catch(e) {
+    statusEl.textContent = '✗ ' + e.message;
+    statusEl.className = 'status-line err';
+  }
+}
+
+async function loadSelectedPlaylist() {
+  const picker = document.getElementById('playlist-picker');
+  const id = picker.value;
+  const name = picker.options[picker.selectedIndex] ? picker.options[picker.selectedIndex].text : '';
+  if (!id) { alert('Please select a playlist first.'); return; }
+  const statusEl = document.getElementById('master-status');
+  statusEl.textContent = 'Loading tracks…'; statusEl.className = 'status-line';
+  try {
+    const tracks = [];
+    let nextUrl = 'https://api.spotify.com/v1/playlists/' + id + '/tracks?limit=100';
+    while (nextUrl) {
+      const res = await spFetch(nextUrl);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error('Spotify error ' + res.status + ': ' + (err.error && err.error.message ? err.error.message : 'unknown'));
       }
       const data = await res.json();
       for (const item of (data.items || [])) {
         if (!item.track || !item.track.id) continue;
-        tracks.push({ title: item.track.name, artist: item.track.artists.map(a => a.name).join(', '), uri: item.track.uri });
+        tracks.push({ title: item.track.name, artist: item.track.artists.map(function(a) { return a.name; }).join(', '), uri: item.track.uri });
       }
-      next = data.next || null;
+      nextUrl = data.next || null;
     }
     masterTracks = tracks;
     localStorage.setItem('master_tracks', JSON.stringify(tracks));
-    statusEl.textContent = `✓ ${tracks.length} tracks loaded`;
+    localStorage.setItem('master_playlist_name', name);
+    statusEl.textContent = '✓ ' + tracks.length + ' tracks loaded';
     statusEl.className = 'status-line ok';
   } catch(e) {
     statusEl.textContent = '✗ ' + e.message;
@@ -395,14 +429,14 @@ function loadMasterFromStorage() {
   const s = localStorage.getItem('master_tracks');
   if (s) {
     masterTracks = JSON.parse(s);
+    const name = localStorage.getItem('master_playlist_name') || 'master playlist';
     const el = document.getElementById('master-status');
-    el.textContent = `✓ ${masterTracks.length} tracks loaded (cached)`;
+    el.textContent = '✓ ' + masterTracks.length + ' tracks cached from "' + name.split(' (')[0] + '"';
     el.className = 'status-line ok';
   }
 }
 
 function extractId(input) {
-  // Handle share URLs with si= params: open.spotify.com/playlist/ID?si=...
   const m = input.match(/playlist\/([A-Za-z0-9]+)/);
   if (m) return m[1];
   if (/^[A-Za-z0-9]{22}$/.test(input)) return input;
