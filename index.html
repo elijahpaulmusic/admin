@@ -380,7 +380,12 @@ async function fetchMyPlaylists() {
       }
       const data = await res.json();
       for (const p of (data.items || [])) {
-        if (p && p.id) playlists.push({ id: p.id, name: p.name, count: p.tracks ? p.tracks.total : 0 });
+        if (p && p.id) {
+          // Spotify can return total in p.tracks.total or just omit it
+          const count = (p.tracks && p.tracks.total != null) ? p.tracks.total
+                      : (p.tracks && p.tracks.href) ? '?' : 0;
+          playlists.push({ id: p.id, name: p.name, count: count });
+        }
       }
       nextUrl = data.next || null;
     }
@@ -406,21 +411,7 @@ async function loadSelectedPlaylist() {
   const statusEl = document.getElementById('master-status');
   statusEl.textContent = 'Loading tracks…'; statusEl.className = 'status-line';
   try {
-    const tracks = [];
-    let nextUrl = 'https://api.spotify.com/v1/playlists/' + id + '/tracks?limit=100';
-    while (nextUrl) {
-      const res = await spFetch(nextUrl);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error('Spotify error ' + res.status + ': ' + (err.error && err.error.message ? err.error.message : 'unknown'));
-      }
-      const data = await res.json();
-      for (const item of (data.items || [])) {
-        if (!item.track || !item.track.id) continue;
-        tracks.push({ title: item.track.name, artist: item.track.artists.map(function(a) { return a.name; }).join(', '), uri: item.track.uri });
-      }
-      nextUrl = data.next || null;
-    }
+    const tracks = await fetchPlaylistTracks(id, statusEl);
     masterTracks = tracks;
     localStorage.setItem('master_tracks', JSON.stringify(tracks));
     localStorage.setItem('master_playlist_name', name);
@@ -430,6 +421,77 @@ async function loadSelectedPlaylist() {
     statusEl.textContent = '✗ ' + e.message;
     statusEl.className = 'status-line err';
   }
+}
+
+async function fetchPlaylistTracks(id, statusEl) {
+  const tracks = [];
+  // Try the standard tracks endpoint first
+  let nextUrl = 'https://api.spotify.com/v1/playlists/' + id + '/tracks?limit=100&market=GB';
+  let page = 1;
+  while (nextUrl) {
+    if (statusEl) statusEl.textContent = 'Loading tracks (page ' + page + ')…';
+    const res = await spFetch(nextUrl);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err.error && err.error.message ? err.error.message : 'unknown';
+      // 403 here usually means the playlist is not accessible with current token
+      // Try the alternative full playlist endpoint
+      if (res.status === 403) {
+        return await fetchViaAlternativeEndpoint(id, statusEl);
+      }
+      throw new Error('Spotify error ' + res.status + ': ' + msg);
+    }
+    const data = await res.json();
+    for (const item of (data.items || [])) {
+      if (!item || !item.track || !item.track.id) continue;
+      tracks.push({
+        title: item.track.name,
+        artist: item.track.artists.map(function(a) { return a.name; }).join(', '),
+        uri: item.track.uri
+      });
+    }
+    nextUrl = data.next || null;
+    page++;
+  }
+  return tracks;
+}
+
+async function fetchViaAlternativeEndpoint(id, statusEl) {
+  // Alternative: fetch the full playlist object which includes tracks inline
+  if (statusEl) statusEl.textContent = 'Trying alternative method…';
+  const tracks = [];
+  const res = await spFetch('https://api.spotify.com/v1/playlists/' + id + '?market=GB');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error('Spotify error ' + res.status + ': ' + (err.error ? err.error.message : 'both endpoints failed'));
+  }
+  const data = await res.json();
+  // Pull tracks from the inline items
+  for (const item of ((data.tracks && data.tracks.items) || [])) {
+    if (!item || !item.track || !item.track.id) continue;
+    tracks.push({
+      title: item.track.name,
+      artist: item.track.artists.map(function(a) { return a.name; }).join(', '),
+      uri: item.track.uri
+    });
+  }
+  // If there are more pages, fetch them
+  let nextUrl = data.tracks && data.tracks.next;
+  while (nextUrl) {
+    const r2 = await spFetch(nextUrl);
+    if (!r2.ok) break;
+    const d2 = await r2.json();
+    for (const item of (d2.items || [])) {
+      if (!item || !item.track || !item.track.id) continue;
+      tracks.push({
+        title: item.track.name,
+        artist: item.track.artists.map(function(a) { return a.name; }).join(', '),
+        uri: item.track.uri
+      });
+    }
+    nextUrl = d2.next || null;
+  }
+  return tracks;
 }
 
 function loadMasterFromStorage() {
