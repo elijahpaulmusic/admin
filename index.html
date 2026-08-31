@@ -177,7 +177,7 @@
 
     <div class="main">
       <div class="main-title">Create Client Playlist</div>
-      <div class="main-sub">Paste the client's copied setlist, match to your master versions, then push directly to Spotify or download for TuneMyMusic.</div>
+      <div class="main-sub">Paste the client's copied setlist, match to your master versions, then download for TuneMyMusic. The direct Spotify button may be blocked by Spotify's Development Mode restrictions — TuneMyMusic is the reliable route.</div>
 
       <div class="success-banner" id="success-banner">
         <p>✓ Playlist created on Spotify!</p>
@@ -466,7 +466,7 @@ async function doLoadPlaylist() {
 
   try {
     const tracks = [];
-    let url = 'https://api.spotify.com/v1/playlists/' + id + '/tracks?limit=100&market=GB';
+    let url = 'https://api.spotify.com/v1/playlists/' + id + '/items?limit=100&market=GB';
     let page = 1;
     while (url) {
       st.textContent = 'Loading page ' + page + '…';
@@ -474,11 +474,13 @@ async function doLoadPlaylist() {
       const data = await res.json();
       if (!res.ok) throw new Error('Spotify ' + res.status + ': ' + (data.error ? data.error.message : 'unknown'));
       for (const item of (data.items || [])) {
-        if (!item || !item.track || !item.track.id) continue;
+        // February 2026 migration: field renamed from .track to .item
+        const t = item && (item.track || item.item);
+        if (!t || !t.id || t.type !== 'track') continue;
         tracks.push({
-          title:  item.track.name,
-          artist: item.track.artists.map(function(a){ return a.name; }).join(', '),
-          uri:    item.track.uri,
+          title:  t.name,
+          artist: t.artists.map(function(a){ return a.name; }).join(', '),
+          uri:    t.uri,
         });
       }
       url = data.next || null;
@@ -656,7 +658,7 @@ async function doCreatePlaylist() {
       return eff ? eff.uri : null;
     }).filter(Boolean);
     for (let i = 0; i < uris.length; i += 100) {
-      await spFetch('https://api.spotify.com/v1/playlists/' + created.id + '/tracks', {
+      await spFetch('https://api.spotify.com/v1/playlists/' + created.id + '/items', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ uris: uris.slice(i, i + 100) }),
