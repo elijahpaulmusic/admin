@@ -381,10 +381,7 @@ async function fetchMyPlaylists() {
       const data = await res.json();
       for (const p of (data.items || [])) {
         if (p && p.id) {
-          // Spotify can return total in p.tracks.total or just omit it
-          const count = (p.tracks && p.tracks.total != null) ? p.tracks.total
-                      : (p.tracks && p.tracks.href) ? '?' : 0;
-          playlists.push({ id: p.id, name: p.name, count: count });
+          playlists.push({ id: p.id, name: p.name });
         }
       }
       nextUrl = data.next || null;
@@ -392,10 +389,10 @@ async function fetchMyPlaylists() {
     if (!playlists.length) { statusEl.textContent = 'No playlists found on your account.'; return; }
     const picker = document.getElementById('playlist-picker');
     picker.innerHTML = '<option value="">— select a playlist —</option>' +
-      playlists.map(p => '<option value="' + p.id + '">' + p.name + ' (' + p.count + ' tracks)</option>').join('');
+      playlists.map(p => '<option value="' + p.id + '">' + p.name + '</option>').join('');
     picker.style.display = 'block';
     document.getElementById('load-master-btn').style.display = 'block';
-    statusEl.textContent = playlists.length + ' playlists found — select one below';
+    statusEl.textContent = playlists.length + ' playlists found — select yours below';
     statusEl.className = 'status-line ok';
   } catch(e) {
     statusEl.textContent = '✗ ' + e.message;
