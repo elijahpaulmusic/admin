@@ -242,7 +242,7 @@
 const ADMIN_PASSWORD = 'elijah2024';
 function checkPw() {
   if (document.getElementById('pw-input').value === ADMIN_PASSWORD) {
-    sessionStorage.setItem('admin_auth', '1');
+    localStorage.setItem('admin_auth', '1');
     document.getElementById('login-gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     onAppLoad();
@@ -251,8 +251,8 @@ function checkPw() {
     document.getElementById('pw-input').value = '';
   }
 }
-function logout() { sessionStorage.removeItem('admin_auth'); location.reload(); }
-if (sessionStorage.getItem('admin_auth') === '1') {
+function logout() { localStorage.removeItem('admin_auth'); location.reload(); }
+if (localStorage.getItem('admin_auth') === '1') {
   document.getElementById('login-gate').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   onAppLoad();
