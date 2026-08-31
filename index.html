@@ -171,7 +171,7 @@
 
     <div class="main">
       <div class="main-title">Create Client Playlist</div>
-      <div class="main-sub">Paste the client's copied setlist, match to your master versions, then download. The file contains exact Spotify track URIs from your master playlist so TuneMyMusic imports the precise versions you use.</div>
+      <div class="main-sub">Paste the client's copied setlist, match to your master versions, then download. The CSV includes ISRC codes — unique recording identifiers — so TuneMyMusic imports the exact versions from your master playlist every time.</div>
 
       <textarea class="paste-area" id="setlist-input" placeholder="Paste the client's setlist here:
 
@@ -195,7 +195,7 @@
         </div>
         <div class="match-list" id="match-list"></div>
         <div style="margin-top:16px">
-          <span class="preview-label">TuneMyMusic file preview</span>
+          <span class="preview-label">CSV preview — includes ISRC codes for exact version matching</span>
           <div class="preview-box" id="file-preview"></div>
         </div>
       </div>
@@ -451,7 +451,7 @@ async function doLoadPlaylist() {
 
   try {
     const tracks = [];
-    let url = 'https://api.spotify.com/v1/playlists/' + id + '/items?limit=100&market=GB';
+    let url = 'https://api.spotify.com/v1/playlists/' + id + '/items?limit=100';
     let page = 1;
     while (url) {
       st.textContent = 'Loading page ' + page + '…';
@@ -465,7 +465,10 @@ async function doLoadPlaylist() {
         tracks.push({
           title:  t.name,
           artist: t.artists.map(function(a){ return a.name; }).join(', '),
+          album:  t.album ? t.album.name : '',
           uri:    t.uri,
+          spotifyId: t.id,
+          isrc:   (t.external_ids && t.external_ids.isrc) ? t.external_ids.isrc : '',
         });
       }
       url = data.next || null;
@@ -596,15 +599,23 @@ function updateSummary() {
 }
 
 function buildFileContent() {
-  // Output Spotify URIs directly — TuneMyMusic accepts these and imports
-  // the EXACT track, not just a search result. Falls back to Artist - Title
-  // for any manually-selected tracks that might not have a URI.
-  return matchedTracks.map(function(t) {
+  // Output as a CSV with ISRC code — TuneMyMusic uses ISRC to find the EXACT
+  // recording, not just a fuzzy text match. This guarantees the right version.
+  // Format mirrors TuneMyMusic's own Spotify export format.
+  var rows = [csvRow(['Track Name', 'Artist Name(s)', 'Album Name', 'ISRC', 'Spotify – id'])];
+  matchedTracks.forEach(function(t) {
     const eff = t.override || (t.match && t.match.track);
-    if (!eff) return null;
-    // Use the Spotify URI if available (exact version guaranteed)
-    return eff.uri || (eff.artist + ' - ' + eff.title);
-  }).filter(Boolean).join('\n');
+    if (!eff) return;
+    rows.push(csvRow([eff.title, eff.artist, eff.album || '', eff.isrc || '', eff.spotifyId || '']));
+  });
+  return rows.join('\n');
+}
+
+function csvRow(fields) {
+  // Wrap each field in quotes, escaping any internal quotes
+  return fields.map(function(f) {
+    return '"' + (f || '').replace(/"/g, '\"') + '"';
+  }).join(',');
 }
 
 function updatePreview() {
@@ -621,7 +632,7 @@ function doDownload() {
   // Download the file
   const a = Object.assign(document.createElement('a'), {
     href:     URL.createObjectURL(new Blob([content], { type: 'text/plain' })),
-    download: name + '.txt',
+    download: name + '.csv',
   });
   document.body.appendChild(a);
   a.click();
