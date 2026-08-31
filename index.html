@@ -77,10 +77,7 @@
   .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
   .results-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 700; }
   .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
-  .sp-create-btn { padding: 9px 18px; background: var(--spotify); color: var(--white); border: none; border-radius: 3px; font-family: 'Open Sans Condensed', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: opacity .15s; }
-  .sp-create-btn:hover { opacity: .88; }
-  .sp-create-btn:disabled { opacity: .35; cursor: not-allowed; }
-  .dl-btn { padding: 9px 18px; background: var(--tmm); color: var(--white); border: none; border-radius: 3px; font-family: 'Open Sans Condensed', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: opacity .15s; text-decoration: none; }
+  .dl-btn { padding: 11px 22px; background: var(--tmm); color: var(--white); border: none; border-radius: 3px; font-family: 'Open Sans Condensed', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: opacity .15s; text-decoration: none; letter-spacing: .03em; }
   .dl-btn:hover { opacity: .88; }
   .match-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 20px; }
   .match-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 13px; border-radius: 3px; border: 1.5px solid var(--border); background: var(--white); }
@@ -94,9 +91,6 @@
   .m-version { font-size: 11px; color: var(--success); font-weight: 700; margin-top: 2px; }
   .m-warn { font-size: 11px; color: var(--warn); font-weight: 700; margin-top: 2px; }
   .override-sel { font-family: 'Open Sans Condensed', sans-serif; font-size: 12px; padding: 4px 8px; border: 1.5px solid var(--border); border-radius: 3px; background: var(--white); color: var(--ink); outline: none; max-width: 260px; cursor: pointer; margin-top: 5px; display: block; }
-  .success-banner { display: none; padding: 14px 18px; background: var(--success-bg); border: 1.5px solid var(--success-border); border-radius: 3px; margin-bottom: 16px; }
-  .success-banner p { font-size: 13px; color: var(--success); font-weight: 700; margin-bottom: 4px; }
-  .success-banner a { font-size: 13px; color: var(--success); }
   .preview-label { font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; display: block; }
   .preview-box { background: var(--ink); border-radius: 3px; padding: 14px; font-family: 'DM Mono', monospace; font-size: 11px; color: #ccc; line-height: 1.8; max-height: 180px; overflow-y: auto; white-space: pre; }
   .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; }
@@ -177,12 +171,7 @@
 
     <div class="main">
       <div class="main-title">Create Client Playlist</div>
-      <div class="main-sub">Paste the client's copied setlist, match to your master versions, then download for TuneMyMusic. The direct Spotify button may be blocked by Spotify's Development Mode restrictions — TuneMyMusic is the reliable route.</div>
-
-      <div class="success-banner" id="success-banner">
-        <p>✓ Playlist created on Spotify!</p>
-        <a id="playlist-link" href="#" target="_blank">Open in Spotify →</a>
-      </div>
+      <div class="main-sub">Paste the client's copied setlist, match to your master versions, then download. The file contains exact Spotify track URIs from your master playlist so TuneMyMusic imports the precise versions you use.</div>
 
       <textarea class="paste-area" id="setlist-input" placeholder="Paste the client's setlist here:
 
@@ -201,11 +190,7 @@
         <div class="results-header">
           <div class="results-title">Matched Tracks</div>
           <div class="btn-group">
-            <button class="sp-create-btn" id="sp-create-btn" onclick="doCreatePlaylist()">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-              Create Spotify Playlist
-            </button>
-            <a class="dl-btn" href="#" onclick="doDownload(event)">⬇ Download for TuneMyMusic</a>
+            <button class="dl-btn" onclick="doDownload()">⬇ Download &amp; Open TuneMyMusic</button>
           </div>
         </div>
         <div class="match-list" id="match-list"></div>
@@ -549,7 +534,6 @@ function bestMatch(title, artist) {
 // ════════════════════════════════════════════════════════
 function renderResults() {
   document.getElementById('results-area').style.display = 'block';
-  document.getElementById('success-banner').style.display = 'none';
   updateSummary();
 
   const opts = masterTracks.map(function(t) {
@@ -611,68 +595,42 @@ function updateSummary() {
     (unmatched ? '<span class="s-warn">⚠ ' + unmatched + ' will be skipped</span>' : '');
 }
 
-function buildTxt() {
+function buildFileContent() {
+  // Output Spotify URIs directly — TuneMyMusic accepts these and imports
+  // the EXACT track, not just a search result. Falls back to Artist - Title
+  // for any manually-selected tracks that might not have a URI.
   return matchedTracks.map(function(t) {
     const eff = t.override || (t.match && t.match.track);
-    return eff ? eff.artist + ' - ' + eff.title : null;
+    if (!eff) return null;
+    // Use the Spotify URI if available (exact version guaranteed)
+    return eff.uri || (eff.artist + ' - ' + eff.title);
   }).filter(Boolean).join('\n');
 }
 
 function updatePreview() {
-  document.getElementById('file-preview').textContent = buildTxt();
+  document.getElementById('file-preview').textContent = buildFileContent();
 }
 
 // ════════════════════════════════════════════════════════
 // DOWNLOAD
 // ════════════════════════════════════════════════════════
-function doDownload(e) {
-  e.preventDefault();
-  const txt = buildTxt();
-  if (!txt) { alert('No matched tracks to export.'); return; }
+function doDownload() {
+  const content = buildFileContent();
+  if (!content) { alert('No matched tracks to export.'); return; }
   const name = (document.getElementById('playlist-name').value.trim() || 'playlist').replace(/[^\w\s-]/g, '').trim();
+  // Download the file
   const a = Object.assign(document.createElement('a'), {
-    href:     URL.createObjectURL(new Blob([txt], { type: 'text/plain' })),
+    href:     URL.createObjectURL(new Blob([content], { type: 'text/plain' })),
     download: name + '.txt',
   });
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(a.href);
-}
-
-// ════════════════════════════════════════════════════════
-// CREATE SPOTIFY PLAYLIST
-// ════════════════════════════════════════════════════════
-async function doCreatePlaylist() {
-  if (!spotifyToken) { alert('Connect to Spotify first.'); return; }
-  const name = document.getElementById('playlist-name').value.trim() || 'Client Setlist';
-  const btn  = document.getElementById('sp-create-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Creating…';
-  try {
-    const me       = await (await spFetch('https://api.spotify.com/v1/me')).json();
-    const created  = await (await spFetch('https://api.spotify.com/v1/users/' + me.id + '/playlists', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name, public: false, description: 'Created by Elijah Paul Playlist Admin' }),
-    })).json();
-    const uris = matchedTracks.map(function(t) {
-      const eff = t.override || (t.match && t.match.track);
-      return eff ? eff.uri : null;
-    }).filter(Boolean);
-    for (let i = 0; i < uris.length; i += 100) {
-      await spFetch('https://api.spotify.com/v1/playlists/' + created.id + '/items', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ uris: uris.slice(i, i + 100) }),
-      });
-    }
-    document.getElementById('playlist-link').href = created.external_urls.spotify;
-    document.getElementById('success-banner').style.display = 'block';
-    document.getElementById('success-banner').scrollIntoView({ behavior: 'smooth' });
-  } catch (e) {
-    alert('Error: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '&#9654; Create Spotify Playlist';
-  }
+  // Open TuneMyMusic after a short delay so browser doesn't block the popup
+  setTimeout(function() {
+    window.open('https://app.tunemymusic.com/transfer', '_blank');
+  }, 500);
 }
 
 // ════════════════════════════════════════════════════════
