@@ -286,8 +286,8 @@ function loadConfig() {
 // ── OAUTH (PKCE) ──
 function disconnectSpotify() {
   spotifyToken = null;
-  sessionStorage.removeItem('sp_token');
-  sessionStorage.removeItem('sp_refresh');
+  localStorage.removeItem('sp_token');
+  localStorage.removeItem('sp_refresh');
   sessionStorage.removeItem('pkce_verifier');
   setConnected(false);
 }
@@ -311,7 +311,7 @@ async function connectSpotify() {
 async function handleOAuthCallback() {
   const code = new URLSearchParams(window.location.search).get('code');
   if (!code) {
-    const stored = sessionStorage.getItem('sp_token');
+    const stored = localStorage.getItem('sp_token');
     if (stored) { spotifyToken = stored; setConnected(true); }
     return;
   }
@@ -327,8 +327,8 @@ async function handleOAuthCallback() {
     const data = await res.json();
     if (data.access_token) {
       spotifyToken = data.access_token;
-      sessionStorage.setItem('sp_token', spotifyToken);
-      if (data.refresh_token) sessionStorage.setItem('sp_refresh', data.refresh_token);
+      localStorage.setItem('sp_token', spotifyToken);
+      if (data.refresh_token) localStorage.setItem('sp_refresh', data.refresh_token);
       setConnected(true);
       history.replaceState({}, '', window.location.pathname);
     } else {
@@ -358,7 +358,7 @@ async function spFetch(url, opts = {}) {
   if (!spotifyToken) throw new Error('Not connected to Spotify — click Connect first.');
   const res = await fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + spotifyToken, ...(opts.headers || {}) } });
   if (res.status === 401) {
-    spotifyToken = null; sessionStorage.removeItem('sp_token'); setConnected(false);
+    spotifyToken = null; localStorage.removeItem('sp_token'); setConnected(false);
     throw new Error('Spotify session expired — click Connect to Spotify again.');
   }
   return res;
