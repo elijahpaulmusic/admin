@@ -565,9 +565,9 @@ function renderResults() {
         '<div class="m-info">' +
           '<div class="m-title">' + esc(t.title) + '</div>' +
           '<div class="m-artist">' + esc(t.artist) + '</div>' +
-          '<div class="m-warn">Not in master playlist — select manually or skip:</div>' +
+          '<div class="m-warn">Not in master playlist — will be added by text search. Select manually for exact version:</div>' +
           '<select class="override-sel" onchange="setOverride(' + i + ',this.value)">' +
-            '<option value="">— skip this track —</option>' + opts +
+            '<option value="">— use text search (default) —</option>' + opts +
           '</select>' +
         '</div></div>';
     }
@@ -595,18 +595,24 @@ function updateSummary() {
   document.getElementById('summary-bar').innerHTML =
     '<span>' + matchedTracks.length + ' songs parsed</span>' +
     '<span class="s-ok">✓ ' + matched + ' matched</span>' +
-    (unmatched ? '<span class="s-warn">⚠ ' + unmatched + ' will be skipped</span>' : '');
+    (unmatched ? '<span class="s-warn">⚠ ' + unmatched + ' not in master (text search only)</span>' : '');
 }
 
 function buildFileContent() {
   // Output as a CSV with ISRC code — TuneMyMusic uses ISRC to find the EXACT
   // recording, not just a fuzzy text match. This guarantees the right version.
-  // Format mirrors TuneMyMusic's own Spotify export format.
+  // Unmatched tracks (not in master playlist) are still included using the
+  // client's original title and artist — TuneMyMusic will search for them.
   var rows = [csvRow(['Track Name', 'Artist Name(s)', 'Album Name', 'ISRC', 'Spotify – id'])];
   matchedTracks.forEach(function(t) {
     const eff = t.override || (t.match && t.match.track);
-    if (!eff) return;
-    rows.push(csvRow([eff.title, eff.artist, eff.album || '', eff.isrc || '', eff.spotifyId || '']));
+    if (eff) {
+      // Matched to master playlist — use exact version with ISRC
+      rows.push(csvRow([eff.title, eff.artist, eff.album || '', eff.isrc || '', eff.spotifyId || '']));
+    } else {
+      // Not in master playlist — include client's request as a text search row
+      rows.push(csvRow([t.title, t.artist, '', '', '']));
+    }
   });
   return rows.join('\n');
 }
